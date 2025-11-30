@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TubeTutor</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; background: #F9FAFB; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        h1 { font-size: 24px; margin-bottom: 10px; color: #111; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 25px; }
+        input { width: 100%; padding: 14px; border: 2px solid #EEE; border-radius: 12px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; transition: 0.2s; }
+        input:focus { border-color: #3B82F6; outline: none; }
+        button { width: 100%; padding: 16px; background: #3B82F6; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #2563EB; }
+        #resultArea { display: none; margin-top: 30px; }
+        .card { background: #F3F4F6; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
+        .card h3 { margin: 0 0 10px 0; font-size: 16px; color: #3B82F6; }
+        .summary-text { line-height: 1.6; font-size: 15px; white-space: pre-line; }
+        .vocab-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+        .vocab-word { font-weight: bold; color: #1F2937; }
+        .vocab-mean { color: #6B7280; font-size: 14px; }
+        .loader { display: none; text-align: center; margin-top: 20px; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🇺🇸 TubeTutor</h1>
+    <div class="subtitle">영어 유튜브 링크를 넣으면 3줄 요약과 단어장을 만들어드려요.</div>
+    <input type="text" id="urlInput" placeholder="유튜브 링크 붙여넣기...">
+    <button onclick="analyze()">분석하기 (Analyze)</button>
+    <div id="loader" class="loader">AI가 영상을 시청 중입니다... 🎧</div>
+
+    <div id="resultArea">
+        <div class="card">
+            <h3>📝 3줄 요약</h3>
+            <div id="summary" class="summary-text"></div>
+        </div>
+        <div class="card">
+            <h3>💡 핵심 단어장</h3>
+            <div id="vocabList"></div>
+        </div>
+        <div class="card" style="background:#EFF6FF; border:1px solid #DBEAFE;">
+            <h3>🗣️ 쉐도잉 연습</h3>
+            <div id="shadowingList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let fullVocabList = [];
+    async function analyze() {
+        const url = document.getElementById('urlInput').value;
+        if(!url) return alert("링크를 넣어주세요!");
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('resultArea').style.display = 'none';
+        
+        try {
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: url})
+            });
+            const data = await response.json();
+            if(data.error) throw new Error(data.error);
+
+            document.getElementById('summary').innerText = data.summary;
+            fullVocabList = data.vocab;
+            renderVocab(3);
+            
+            const shadowHTML = data.shadowing.map(s => `
+                <div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px dashed #DDD;">
+                    <div style="font-size:12px; font-weight:bold; color:#2563EB; margin-bottom:4px;">${s.level}</div>
+                    <div style="font-style:italic; color:#333;">"${s.text}"</div>
+                </div>
+            `).join('');
+            document.getElementById('shadowingList').innerHTML = shadowHTML;
+            document.getElementById('resultArea').style.display = 'block';
+        } catch(e) { alert(e.message || "오류가 발생했습니다."); } 
+        finally { document.getElementById('loader').style.display = 'none'; }
+    }
+
+    function renderVocab(count) {
+        const list = document.getElementById('vocabList');
+        let html = fullVocabList.slice(0, count).map(v => `
+            <div class="vocab-item">
+                <div class="vocab-word">${v.word} <span class="vocab-mean">(${v.meaning})</span></div>
+                <div style="font-size:12px; color:#888; margin-top:4px;">"${v.example}"</div>
+            </div>
+        `).join('');
+        if (count < fullVocabList.length) {
+            html += `<button onclick="renderVocab(10)" style="width:100%; margin-top:10px; background:#E5E7EB; color:#333;">👇 단어 더보기</button>`;
+        }
+        list.innerHTML = html;
+    }
+</script>
+</body>
+</html>
